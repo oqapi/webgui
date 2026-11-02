@@ -240,7 +240,7 @@ sub getEditForm {
 	my $i18n = WebGUI::International->new($self->session,"Asset_Poll");
     my ($i, $answers);
     for ($i=1; $i<=20; $i++) {
-        if ($self->get('a'.$i) =~ /\C/) {
+        if ($self->get('a'.$i) =~ /./) {
             $answers .= $self->getValue("a".$i)."\n";
         }
     }
@@ -489,7 +489,7 @@ sub view {
 	$var{"form.end"} = WebGUI::Form::formFooter($self->session,);
 	$totalResponses = 1 if ($totalResponses < 1);
         for (my $i=1; $i<=20; $i++) {
-        	if ($self->get('a'.$i) =~ /\C/) {
+        	if ($self->get('a'.$i) =~ /./) {
                         my ($tally) = $self->session->db->quickArray("select count(*) from Poll_answer where answer='a"
 				.$i."' and assetId=".$self->session->db->quote($self->getId)." group by answer");
                 	push(@answers,{

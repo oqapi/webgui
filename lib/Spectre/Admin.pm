@@ -155,6 +155,7 @@ sub loadSiteData {
         	} 
 		else {
 			my $siteData = {};
+			print "Reading site configs. $url responded with: " . $response->content . "\n";
 			eval { $siteData = JSON::decode_json($response->content); };
 			if ($@) {
 				$self->error("Couldn't fetch Spectre configuration data for $key : $@");

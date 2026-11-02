@@ -13,6 +13,7 @@
 use strict;
 use File::Basename ();
 use File::Spec;
+use lib '.';
 
 my $webguiRoot;
 BEGIN {
@@ -132,8 +133,8 @@ foreach my $filename (keys %{$configs}) {
 		$config{$filename}{mysqlCLI} = $configs->{$filename}->get("mysqlCLI");
 		$config{$filename}{mysqlDump} = $configs->{$filename}->get("mysqlDump");
 		$config{$filename}{backupPath} = $configs->{$filename}->get("backupPath");
-		my $session = WebGUI::Session->open($webguiRoot,$filename);
-		($config{$filename}{version}) = $session->db->quickArray("select webguiVersion from webguiVersion order by
+        my $session = WebGUI::Session->open($webguiRoot, $filename, undef, undef, undef, 1);
+    	($config{$filename}{version}) = $session->db->quickArray("select webguiVersion from webguiVersion order by
         dateApplied desc, length(webguiVersion) desc, webguiVersion desc limit 1");
 		unless ($history) {
 			print "\tPreparing site for upgrade.\n" unless ($quiet);
