@@ -1,4 +1,9 @@
 7.10.33
+ - fixed: upgrade.pl runs the upgrade steps up to and including 7.10.32
+   without strict mode (sql_mode of the server minus STRICT_TRANS_TABLES and
+   STRICT_ALL_TABLES). In strict mode they failed on MySQL >= 5.7 and MariaDB
+   >= 10.2.4, because many NOT NULL columns had no default before 7.10.33,
+   for example assetVersionTag.name on the version tag of every step.
  - fixed: Spectre no longer prints the full site data response of every site
    at startup. When that response is not valid JSON, the error now includes
    its first 500 characters.

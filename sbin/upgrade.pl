@@ -46,6 +46,8 @@ my $backupDir = "/tmp/backups";
 my $skipBackup;
 my $skipDelete;
 my $skipMaintenance;
+# upgrade steps that end at or before this version run without strict mode
+my $lastLaxVersion = "7.10.32";
 my $doit;
 
 Getopt::Long::GetOptions(
@@ -152,6 +154,11 @@ foreach my $filename (keys %{$configs}) {
                 print "\tSetting a default for userSession.userId.\n" unless ($quiet);
                 $dbh->do(q{ALTER TABLE userSession ALTER COLUMN userId SET DEFAULT ''});
             }
+            # The sql_mode of the server without strict mode, for the upgrade
+            # steps up to and including 7.10.32 (see $lastLaxVersion).
+            my ($sqlMode) = $dbh->selectrow_array('SELECT @@SESSION.sql_mode');
+            $config{$filename}{laxSqlMode} = join ',',
+                grep { $_ ne '' && !/^STRICT_(?:TRANS|ALL)_TABLES$/ } split /,/, $sqlMode;
             $dbh->disconnect;
         }
         # Remember the id of the userSession row, so the session can be reopened
@@ -255,9 +262,21 @@ foreach my $filename (keys %config) {
 				fatalError();
 			}
 		}
+		# Before 7.10.33 many NOT NULL columns have no default, so the steps
+		# up to and including 7.10.32 fail in strict mode (MySQL >= 5.7,
+		# MariaDB >= 10.2.4), for example on the version tag every upgrade
+		# script creates. Run them without strict mode, as on the servers
+		# they were written for. 7.10.32-7.10.33 adds the defaults first
+		# (its .sql runs before its .pl) and runs in strict mode.
+		my $laxSqlMode = versionCompare($upgrade{$upgrade}{to}, $lastLaxVersion) <= 0
+			? $config{$filename}{laxSqlMode} : undef;
+		if (defined $laxSqlMode) {
+			print "\tWithout strict mode (sql_mode '$laxSqlMode').\n" unless ($quiet);
+		}
 		if ($upgrade{$upgrade}{sql} ne "") {
 			print "\tUpgrading to ".$upgrade{$upgrade}{to}."..." unless ($quiet);
 			my $cmd = qq!$clicmd -u"$config{$filename}{dbuser}" -p"$config{$filename}{dbpass}"!;
+			$cmd .= qq! --init-command="SET SESSION sql_mode='$laxSqlMode'"! if (defined $laxSqlMode);
 			$cmd .= " --host=".$config{$filename}{host} if ($config{$filename}{host});
 			$cmd .= " --port=".$config{$filename}{port} if ($config{$filename}{port});
 			$cmd .= " --database=".$config{$filename}{db}." < ".$upgrade{$upgrade}{sql};
@@ -277,6 +296,17 @@ foreach my $filename (keys %config) {
                 # script is not run: Perl only warns, $@ stays empty, so it
                 # counts as a success. We are in $upgradesPath here.
                 local $0 = "./" . $upgrade{$upgrade}{pl};
+                # Only in this child process: every database connection of
+                # the upgrade script runs without strict mode.
+                if (defined $laxSqlMode) {
+                    my $connect = \&WebGUI::SQL::connect;
+                    no warnings 'redefine';
+                    *WebGUI::SQL::connect = sub {
+                        my $db = $connect->(@_);
+                        $db->dbh->do("SET SESSION sql_mode = ?", undef, $laxSqlMode) if $db;
+                        return $db;
+                    };
+                }
                 local $@;
                 do $0;
                 if ($@) {
@@ -333,6 +363,19 @@ STOP
 
 
 
+
+#-----------------------------------------
+# versionCompare($a, $b): <0, 0 or >0, like <=>
+#-----------------------------------------
+sub versionCompare {
+    my @a = split /\./, shift;
+    my @b = split /\./, shift;
+    for my $i (0 .. 2) {
+        my $cmp = ($a[$i] // 0) <=> ($b[$i] // 0);
+        return $cmp if $cmp;
+    }
+    return 0;
+}
 
 #-----------------------------------------
 # checkVersion($versionNumber)
