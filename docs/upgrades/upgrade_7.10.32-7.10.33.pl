@@ -103,6 +103,7 @@ sub finish {
     my $versionTag = WebGUI::VersionTag->getWorking($session);
     $versionTag->commit;
     $session->db->write("insert into webguiVersion values (".$session->db->quote($toVersion).",'upgrade',".time().")");
+    $session->var->end;
     $session->close();
 }
 

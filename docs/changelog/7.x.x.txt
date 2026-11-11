@@ -15,6 +15,9 @@
    docs/maintenance.html.
  - upgrade.pl reuses the userSession row of the start of the upgrade at its end,
    and removes it, instead of leaving two rows per site.
+ - fixed: every upgrade_x-y.pl left a valid Admin session (userId 3) in
+   userSession. finish() in _upgrade.skeleton and upgrade_7.10.32-7.10.33.pl
+   now ends the session before closing it.
  - fixed: Columns defined with 'NOT NULL' must have a default value in MySQL 8.x
 
 7.10.32
