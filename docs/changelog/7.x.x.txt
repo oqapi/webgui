@@ -1,4 +1,7 @@
 7.10.33
+ - fixed: RichEdit no longer uses JSON -convert_blessed_universally and
+   allow_blessed; the editor config only holds JSON booleans, which JSON
+   encodes natively. Removed a leftover debug log.
  - fixed: docs/create.sql contained only the schema, without data. It is now the
    7.10.33 install: the 7.10.32 data, upgraded with the defaults of 7.10.33.
  - fixed: Poll used \C in a regular expression, which was removed in Perl 5.24.

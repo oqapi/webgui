@@ -19,7 +19,7 @@ use WebGUI::Asset;
 use WebGUI::Form;
 use WebGUI::Utility;
 use WebGUI::International;
-use JSON -convert_blessed_universally;
+use JSON;
 
 our @ISA = qw(WebGUI::Asset);
 
@@ -664,10 +664,9 @@ EOHTML1
     if ( $ask ) {
         $config->{mode} = "none";
     }
-    $self->session->log->debug("config: $config->{mode} ");
 
     $out    .= $self->getLoadPlugins;
-    $out    .= "\ttinyMCE.init(" . JSON->new->allow_blessed->pretty->encode( $config ) . " );\n";
+    $out    .= "\ttinyMCE.init(" . JSON->new->pretty->encode( $config ) . " );\n";
     $out    .= "</script>";
 }
 
