@@ -155,10 +155,9 @@ sub loadSiteData {
         	} 
 		else {
 			my $siteData = {};
-			print "Reading site configs. $url responded with: " . $response->content . "\n";
 			eval { $siteData = JSON::decode_json($response->content); };
 			if ($@) {
-				$self->error("Couldn't fetch Spectre configuration data for $key : $@");
+				$self->error("Couldn't fetch Spectre configuration data for $key : $@ Response: " . substr($response->content, 0, 500));
 			}
 			else {
 				$self->debug("Loading workflow data for $key");

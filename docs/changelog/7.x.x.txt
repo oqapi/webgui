@@ -1,4 +1,7 @@
 7.10.33
+ - fixed: Spectre no longer prints the full site data response of every site
+   at startup. When that response is not valid JSON, the error now includes
+   its first 500 characters.
  - fixed: RichEdit no longer uses JSON -convert_blessed_universally and
    allow_blessed; the editor config only holds JSON booleans, which JSON
    encodes natively. Removed a leftover debug log.
