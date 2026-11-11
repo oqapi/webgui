@@ -1,4 +1,20 @@
 7.10.33
+ - fixed: docs/create.sql contained only the schema, without data. It is now the
+   7.10.33 install: the 7.10.32 data, upgraded with the defaults of 7.10.33.
+ - fixed: Poll used \C in a regular expression, which was removed in Perl 5.24.
+ - fixed: testEnvironment.pl no longer checks for Crypt::SSLeay; WebGUI does not
+   use it.
+ - fixed: upgrade.pl skipped the .pl upgrade scripts on Perl >= 5.26 with only
+   a warning, because do() searches @INC and '.' is no longer in @INC. The
+   scripts are now run as ./upgrade_x-y.pl.
+ - fixed: upgrade.pl could not open a session on MySQL >= 5.7 or MariaDB >=
+   10.2.4 (strict mode), because userSession.userId had no default. It now sets
+   that default before opening the session, when it is missing.
+ - removed: lib/WebGUI/Paths.pm and www/maintenance.html, carried over from
+   WebGUI 8 by mistake. 7.10 does not use them; the maintenance page is
+   docs/maintenance.html.
+ - upgrade.pl reuses the userSession row of the start of the upgrade at its end,
+   and removes it, instead of leaving two rows per site.
  - fixed: Columns defined with 'NOT NULL' must have a default value in MySQL 8.x
 
 7.10.32

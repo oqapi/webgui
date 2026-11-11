@@ -13,7 +13,6 @@
 use strict;
 use File::Basename ();
 use File::Spec;
-use lib '.';
 
 my $webguiRoot;
 BEGIN {
@@ -133,7 +132,32 @@ foreach my $filename (keys %{$configs}) {
 		$config{$filename}{mysqlCLI} = $configs->{$filename}->get("mysqlCLI");
 		$config{$filename}{mysqlDump} = $configs->{$filename}->get("mysqlDump");
 		$config{$filename}{backupPath} = $configs->{$filename}->get("backupPath");
-        my $session = WebGUI::Session->open($webguiRoot, $filename, undef, undef, undef, 1);
+        # Opening a session inserts a row in userSession. MySQL >= 5.7 and
+        # MariaDB >= 10.2.4 run in strict mode, and before 7.10.33 the column
+        # userSession.userId has no default, so that insert fails before the
+        # upgrade that adds the default can run. Set it first, with a plain
+        # database connection, but only when the column is NOT NULL without
+        # a default. SET DEFAULT keeps the column type.
+        {
+            require DBI;
+            my $dbh = DBI->connect($config{$filename}{dsn}, $config{$filename}{dbuser},
+                $config{$filename}{dbpass}, { RaiseError => 1, PrintError => 0 });
+            my ($needsDefault) = $dbh->selectrow_array(q{
+                SELECT COUNT(*) FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'userSession'
+                  AND COLUMN_NAME = 'userId' AND IS_NULLABLE = 'NO'
+                  AND COLUMN_DEFAULT IS NULL
+            });
+            if ($needsDefault) {
+                print "\tSetting a default for userSession.userId.\n" unless ($quiet);
+                $dbh->do(q{ALTER TABLE userSession ALTER COLUMN userId SET DEFAULT ''});
+            }
+            $dbh->disconnect;
+        }
+        # Remember the id of the userSession row, so the session can be reopened
+        # after the upgrade instead of inserting a second row.
+        my $session = WebGUI::Session->open($webguiRoot, $filename);
+        $config{$filename}{sessionId} = $session->getId;
     	($config{$filename}{version}) = $session->db->quickArray("select webguiVersion from webguiVersion order by
         dateApplied desc, length(webguiVersion) desc, webguiVersion desc limit 1");
 		unless ($history) {
@@ -248,7 +272,11 @@ foreach my $filename (keys %config) {
             my $pid = fork;
             if (!$pid) {
                 local @ARGV = ("--configFile=$filename", $quiet ? ('--quiet') : ());
-                local $0 = $upgrade{$upgrade}{pl};
+                # "./": do() with a bare file name searches @INC, and since
+                # Perl 5.26 '.' is no longer in @INC. Without it the upgrade
+                # script is not run: Perl only warns, $@ stays empty, so it
+                # counts as a success. We are in $upgradesPath here.
+                local $0 = "./" . $upgrade{$upgrade}{pl};
                 local $@;
                 do $0;
                 if ($@) {
@@ -270,11 +298,15 @@ foreach my $filename (keys %config) {
         sleep 1; # Sleep a second to avoid adding asset revisions too quickly
 	}
     chdir($currentPath);
-	my $session = WebGUI::Session->open($webguiRoot,$filename);
+	# Reopen the userSession row of the start (noFuss: do not update or
+	# expire it, this is the 1 at the end), and remove it when done.
+	my $session = WebGUI::Session->open($webguiRoot, $filename, undef, undef,
+		$config{$filename}{sessionId}, 1);
 	print "\tSetting site upgrade completed..." unless ($quiet);
     unless ($skipMaintenance) {
         $session->setting->remove('specialState');
     }
+	$session->var->end;
 	$session->close();
 	print "OK\n" unless ($quiet);
 }
