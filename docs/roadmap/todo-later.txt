@@ -1,0 +1,16 @@
+- MySQL 8 and docs/upgrades/upgrade_7.10.32-7.10.33.sql. On MariaDB (tested
+  on 12.3.3) the script runs without errors. On MySQL 8 these statements
+  probably fail (not tested). upgrade.pl runs the script without --force, so
+  the first error stops the upgrade:
+  1. EMSRegistrant.badgeNumber and transaction.orderNumber are auto_increment
+     and get SET DEFAULT 0. They do not need a default; MariaDB ignores it,
+     MySQL rejects a default on an auto_increment column (error 1067).
+     Fix: remove these two lines.
+  2. Seven TEXT, MEDIUMTEXT and LONGTEXT columns get SET DEFAULT ''. MySQL 8
+     does not allow a literal default on TEXT (error 1101). Fix: DEFAULT ('')
+     (MySQL >= 8.0.13; check that MariaDB accepts it too), or no default and
+     make sure the code always writes these columns.
+  3. cartItem.dateAdded and friendInvitations.dateSent get
+     '0000-00-00 00:00:00'. The default sql_mode of MySQL 8 contains
+     NO_ZERO_DATE, so in strict mode that is error 1067. Fix: a valid date,
+     or make the columns NULL.
